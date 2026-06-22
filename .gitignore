@@ -1,0 +1,11 @@
+# Generated data (large CSVs) — re-create with `python pipeline.py`
+data/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Secrets
+.env
