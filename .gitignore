@@ -1,6 +1,9 @@
 # Generated data (large CSVs) — re-create with `python pipeline.py`
 data/
 
+# Trained models (large binaries) — re-create with the train_*.py scripts
+models/
+
 # Python
 __pycache__/
 *.pyc
