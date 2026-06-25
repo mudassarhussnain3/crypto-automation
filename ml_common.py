@@ -16,11 +16,19 @@ from sklearn.metrics import (accuracy_score, f1_score, precision_score,
 COINS = ["ETHUSDT", "SOLUSDT", "XRPUSDT", "BNBUSDT", "DOGEUSDT"]
 TIMEFRAMES = ["15m", "1h", "4h"]
 
-# 15 features: OHLCV + the 10 Phase 1 indicators (matches pipeline.py output columns).
+# 28 features: OHLCV + 10 Phase 1 indicators + 13 Phase 2b engineered features
+# (must match pipeline.add_indicators output columns).
 FEATURES = [
     "open", "high", "low", "close", "volume",
     "rsi", "macd", "macd_signal", "macd_diff",
     "bb_high", "bb_mid", "bb_low", "atr", "vol_ma20", "vol_ratio",
+    # Phase 2b
+    "ema_9", "ema_21", "ema_trend",
+    "rsi_change_3", "macd_diff_change_3",
+    "higher_high", "lower_low", "close_position",
+    "atr_percentile", "bb_width",
+    "volume_zscore", "price_volume_corr",
+    "btc_trend_1h",
 ]
 TARGET = "target"
 
@@ -97,6 +105,20 @@ def synth_df(n=400, seed=0):
         "atr": rng.uniform(0.5, 3, n),
         "vol_ma20": vol,
         "vol_ratio": rng.uniform(0.5, 2, n),
+        # Phase 2b engineered features — dummy but plausible values for --selftest.
+        "ema_9": close + rng.normal(0, 0.5, n),
+        "ema_21": close + rng.normal(0, 1, n),
+        "ema_trend": rng.normal(0, 0.01, n),
+        "rsi_change_3": rng.normal(0, 5, n),
+        "macd_diff_change_3": rng.normal(0, 0.5, n),
+        "higher_high": rng.integers(0, 2, n).astype(float),
+        "lower_low": rng.integers(0, 2, n).astype(float),
+        "close_position": rng.uniform(0, 1, n),
+        "atr_percentile": rng.uniform(0, 1, n),
+        "bb_width": rng.uniform(0.01, 0.1, n),
+        "volume_zscore": rng.normal(0, 1, n),
+        "price_volume_corr": rng.uniform(-1, 1, n),
+        "btc_trend_1h": rng.integers(0, 2, n).astype(float),
     }, index=idx)
     return df
 

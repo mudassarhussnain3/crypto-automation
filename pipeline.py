@@ -50,6 +50,13 @@ INDICATOR_COLS = [
     "rsi", "macd", "macd_signal", "macd_diff",
     "bb_high", "bb_mid", "bb_low",
     "atr", "vol_ma20", "vol_ratio",
+    # Phase 2b engineered features (all trailing-window / past-lookback only).
+    "ema_9", "ema_21", "ema_trend",
+    "rsi_change_3", "macd_diff_change_3",
+    "higher_high", "lower_low", "close_position",
+    "atr_percentile", "bb_width",
+    "volume_zscore", "price_volume_corr",
+    "btc_trend_1h",
 ]
 
 
@@ -123,13 +130,19 @@ def _get_with_retry(params, attempts=5):
 # --------------------------------------------------------------------------- #
 # 2. Indicators
 # --------------------------------------------------------------------------- #
-def add_indicators(df):
+def add_indicators(df, btc_trend=None):
     """
-    Add the 6 required indicators on the FULL continuous series.
+    Add indicators + Phase 2b engineered features on the FULL continuous series.
 
-    Computing on the full series before splitting is correct: an indicator at
-    time t uses only past/current data (lookback), never future data, so this is
+    Computing on the full series before splitting is correct: a feature at time t
+    uses only past/current data (trailing lookback), never future data, so this is
     NOT leakage. It also avoids artificial NaNs at split boundaries.
+
+    btc_trend: optional Series of BTC 1h trend (1/0) indexed by BTC *close_time*.
+    When given, btc_trend_1h is aligned backward-asof onto each candle's close
+    (the most recent BTC 1h candle closed at/before this candle -> no lookahead).
+    When None, falls back to a self-referential close>EMA20 (used by synthetic
+    selftests and by signal_engine until it passes real BTC trend).
     """
     close, high, low, vol = df["close"], df["high"], df["low"], df["volume"]
 
@@ -150,7 +163,43 @@ def add_indicators(df):
     df["vol_ma20"] = vol.rolling(20).mean()
     df["vol_ratio"] = vol / df["vol_ma20"]
 
-    # Drop leading warmup rows where any indicator is undefined (early 2021 only).
+    # --- Phase 2b engineered features (trailing windows only) --------------- #
+    # 1. Trend strength
+    df["ema_9"] = close.ewm(span=9, adjust=False).mean()
+    df["ema_21"] = close.ewm(span=21, adjust=False).mean()
+    df["ema_trend"] = (df["ema_9"] - df["ema_21"]) / close
+
+    # 2. Momentum divergence (change over the last 3 candles)
+    df["rsi_change_3"] = df["rsi"] - df["rsi"].shift(3)
+    df["macd_diff_change_3"] = df["macd_diff"] - df["macd_diff"].shift(3)
+
+    # 3. Price action (shift(1) excludes the current candle -> no self-reference)
+    df["higher_high"] = (high > high.shift(1).rolling(5).max()).astype(float)
+    df["lower_low"] = (low < low.shift(1).rolling(5).min()).astype(float)
+    rng = (high - low)
+    df["close_position"] = ((close - low) / rng).where(rng > 0, 0.5)  # flat candle -> mid
+
+    # 4. Volatility regime
+    df["atr_percentile"] = df["atr"].rolling(100).rank(pct=True)  # trailing percentile rank
+    df["bb_width"] = (df["bb_high"] - df["bb_low"]) / df["bb_mid"]
+
+    # 5. Volume profile (guard zero-variance windows so we don't punch mid-series holes)
+    vstd = vol.rolling(50).std()
+    df["volume_zscore"] = ((vol - vol.rolling(50).mean()) / vstd).where(vstd > 0, 0.0)
+    df["price_volume_corr"] = close.rolling(20).corr(vol).fillna(0.0)
+
+    # 6. BTC context (cross-coin) — backward-asof on close_time, else self-referential
+    if btc_trend is not None:
+        interval = df.index.to_series().diff().median()       # infer candle interval
+        ct = df.index + interval                               # this candle's close time
+        bt = btc_trend.sort_index()
+        pos = bt.index.searchsorted(ct, side="right") - 1     # most recent BTC trend closed <= ct
+        vals = np.where(pos >= 0, bt.to_numpy()[np.clip(pos, 0, len(bt) - 1)], 0)
+        df["btc_trend_1h"] = vals.astype(float)
+    else:
+        df["btc_trend_1h"] = (close > close.ewm(span=20, adjust=False).mean()).astype(float)
+
+    # Drop leading warmup rows where any feature is undefined (early 2021 only).
     df = df.dropna(subset=INDICATOR_COLS)
     return df
 
@@ -234,6 +283,14 @@ def check_split_overlap(splits):
 # --------------------------------------------------------------------------- #
 # 6. Run + summary
 # --------------------------------------------------------------------------- #
+def _btc_trend_series(start_ms):
+    """BTC 1h trend (close > EMA20 -> 1/0) indexed by close_time, for the BTC context feature."""
+    btc = fetch_klines("BTCUSDT", "1h", start_ms)
+    trend = (btc["close"] > btc["close"].ewm(span=20, adjust=False).mean()).astype(float)
+    trend.index = btc.index + pd.Timedelta(milliseconds=INTERVAL_MS["1h"])  # index by close_time
+    return trend
+
+
 def run():
     start_ms = _to_ms(START)
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
@@ -241,6 +298,9 @@ def run():
 
     for name in SPLIT_DIR.values():
         os.makedirs(os.path.join(DATA_DIR, name), exist_ok=True)
+
+    print("[BTCUSDT 1h] downloading reference trend for btc_trend_1h feature...")
+    btc_trend = _btc_trend_series(start_ms)  # fetched once, reused for every coin/timeframe
 
     summary = []       # per-file rows for the final table
     overlap_report = []  # per coin+tf leakage gate
@@ -254,7 +314,7 @@ def run():
                 continue
 
             missing = count_missing_candles(raw, tf)
-            df = add_indicators(raw)
+            df = add_indicators(raw, btc_trend=btc_trend)
             print(f"    {len(df):,} candles  {df.index.min().date()} -> "
                   f"{df.index.max().date()}  | missing candles: {missing}")
 
