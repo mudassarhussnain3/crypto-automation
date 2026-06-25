@@ -12,3 +12,4 @@ venv/
 
 # Secrets
 .env
+"*.log" 
