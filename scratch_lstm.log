@@ -1,0 +1,36 @@
+2026-06-25 22:20:53.150575: I tensorflow/core/util/port.cc:113] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+2026-06-25 22:20:54.562532: I tensorflow/core/util/port.cc:113] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+2026-06-25 22:20:59.247695: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+WARNING:absl:You are saving your model as an HDF5 file via `model.save()` or `keras.saving.save_model(model)`. This file format is considered legacy. We recommend using instead the native Keras format, e.g. `model.save('my_model.keras')` or `keras.saving.save_model(model, 'my_model.keras')`. 
+WARNING:absl:You are saving your model as an HDF5 file via `model.save()` or `keras.saving.save_model(model)`. This file format is considered legacy. We recommend using instead the native Keras format, e.g. `model.save('my_model.keras')` or `keras.saving.save_model(model, 'my_model.keras')`. 
+WARNING:absl:You are saving your model as an HDF5 file via `model.save()` or `keras.saving.save_model(model)`. This file format is considered legacy. We recommend using instead the native Keras format, e.g. `model.save('my_model.keras')` or `keras.saving.save_model(model, 'my_model.keras')`. 
+WARNING:absl:You are saving your model as an HDF5 file via `model.save()` or `keras.saving.save_model(model)`. This file format is considered legacy. We recommend using instead the native Keras format, e.g. `model.save('my_model.keras')` or `keras.saving.save_model(model, 'my_model.keras')`. 
+WARNING:absl:You are saving your model as an HDF5 file via `model.save()` or `keras.saving.save_model(model)`. This file format is considered legacy. We recommend using instead the native Keras format, e.g. `model.save('my_model.keras')` or `keras.saving.save_model(model, 'my_model.keras')`. 
+WARNING:absl:You are saving your model as an HDF5 file via `model.save()` or `keras.saving.save_model(model)`. This file format is considered legacy. We recommend using instead the native Keras format, e.g. `model.save('my_model.keras')` or `keras.saving.save_model(model, 'my_model.keras')`. 
+WARNING:absl:You are saving your model as an HDF5 file via `model.save()` or `keras.saving.save_model(model)`. This file format is considered legacy. We recommend using instead the native Keras format, e.g. `model.save('my_model.keras')` or `keras.saving.save_model(model, 'my_model.keras')`. 
+WARNING:absl:You are saving your model as an HDF5 file via `model.save()` or `keras.saving.save_model(model)`. This file format is considered legacy. We recommend using instead the native Keras format, e.g. `model.save('my_model.keras')` or `keras.saving.save_model(model, 'my_model.keras')`. 
+WARNING:absl:You are saving your model as an HDF5 file via `model.save()` or `keras.saving.save_model(model)`. This file format is considered legacy. We recommend using instead the native Keras format, e.g. `model.save('my_model.keras')` or `keras.saving.save_model(model, 'my_model.keras')`. 
+WARNING:absl:You are saving your model as an HDF5 file via `model.save()` or `keras.saving.save_model(model)`. This file format is considered legacy. We recommend using instead the native Keras format, e.g. `model.save('my_model.keras')` or `keras.saving.save_model(model, 'my_model.keras')`. 
+WARNING:absl:You are saving your model as an HDF5 file via `model.save()` or `keras.saving.save_model(model)`. This file format is considered legacy. We recommend using instead the native Keras format, e.g. `model.save('my_model.keras')` or `keras.saving.save_model(model, 'my_model.keras')`. 
+WARNING:absl:You are saving your model as an HDF5 file via `model.save()` or `keras.saving.save_model(model)`. This file format is considered legacy. We recommend using instead the native Keras format, e.g. `model.save('my_model.keras')` or `keras.saving.save_model(model, 'my_model.keras')`. 
+WARNING:absl:You are saving your model as an HDF5 file via `model.save()` or `keras.saving.save_model(model)`. This file format is considered legacy. We recommend using instead the native Keras format, e.g. `model.save('my_model.keras')` or `keras.saving.save_model(model, 'my_model.keras')`. 
+WARNING:absl:You are saving your model as an HDF5 file via `model.save()` or `keras.saving.save_model(model)`. This file format is considered legacy. We recommend using instead the native Keras format, e.g. `model.save('my_model.keras')` or `keras.saving.save_model(model, 'my_model.keras')`. 
+WARNING:absl:You are saving your model as an HDF5 file via `model.save()` or `keras.saving.save_model(model)`. This file format is considered legacy. We recommend using instead the native Keras format, e.g. `model.save('my_model.keras')` or `keras.saving.save_model(model, 'my_model.keras')`. 
+Training LSTM models (seq_len=60, per coin per timeframe)...
+  [lstm] ETHUSDT 15m | acc=0.532  precision=0.533  recall=0.569  f1=0.550  (n=35,076)
+  [lstm] ETHUSDT  1h | acc=0.543  precision=0.551  recall=0.540  f1=0.545  (n=8,724)
+  [lstm] ETHUSDT  4h | acc=0.515  precision=0.515  recall=0.722  f1=0.601  (n=2,136)
+  [lstm] SOLUSDT 15m | acc=0.520  precision=0.523  recall=0.488  f1=0.505  (n=35,076)
+  [lstm] SOLUSDT  1h | acc=0.519  precision=0.529  recall=0.435  f1=0.478  (n=8,724)
+  [lstm] SOLUSDT  4h | acc=0.511  precision=0.520  recall=0.691  f1=0.593  (n=2,136)
+  [lstm] XRPUSDT 15m | acc=0.533  precision=0.531  recall=0.426  f1=0.473  (n=35,076)
+  [lstm] XRPUSDT  1h | acc=0.535  precision=0.532  recall=0.621  f1=0.573  (n=8,724)
+  [lstm] XRPUSDT  4h | acc=0.520  precision=0.528  recall=0.470  f1=0.498  (n=2,136)
+  [lstm] BNBUSDT 15m | acc=0.520  precision=0.528  recall=0.338  f1=0.413  (n=35,076)
+  [lstm] BNBUSDT  1h | acc=0.519  precision=0.527  recall=0.621  f1=0.570  (n=8,724)
+  [lstm] BNBUSDT  4h | acc=0.510  precision=0.527  recall=0.478  f1=0.501  (n=2,136)
+  [lstm] DOGEUSDT 15m | acc=0.524  precision=0.537  recall=0.404  f1=0.461  (n=35,076)
+  [lstm] DOGEUSDT  1h | acc=0.525  precision=0.543  recall=0.421  f1=0.474  (n=8,724)
+  [lstm] DOGEUSDT  4h | acc=0.504  precision=0.521  recall=0.492  f1=0.506  (n=2,136)
+Done. Models + scalers saved under models\lstm/.

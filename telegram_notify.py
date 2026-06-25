@@ -4,7 +4,7 @@ Standalone Telegram signal notifier. No strategy logic.
 Given a signal dict, format it and send it to a Telegram chat via
 python-telegram-bot. Wire send_signal() into a signal engine later.
 
-Config (env vars, no secrets in code):
+Config (loaded from a .env file or env vars, no secrets in code):
     TELEGRAM_BOT_TOKEN   bot token from @BotFather
     TELEGRAM_CHAT_ID     target chat / channel id
 
@@ -16,7 +16,10 @@ import asyncio
 import os
 import sys
 
+from dotenv import load_dotenv
 from telegram import Bot
+
+load_dotenv()  # populate os.environ from a local .env if present
 
 REQUIRED_KEYS = [
     "coin", "direction", "entry", "stop_loss",
@@ -77,10 +80,11 @@ def send_signal(sig):
 
 
 def _sample():
+    # SL 100 below entry, TP 200 above -> risk/reward = 1:2 = 2.0
     return {
-        "coin": "ETHUSDT", "direction": "BUY", "entry": 2510.0,
-        "stop_loss": 2460.0, "take_profit": 2640.0, "confidence": 0.78,
-        "timeframe": "4h", "risk_reward": 2.6,
+        "coin": "ETHUSDT", "direction": "BUY", "entry": 3200.0,
+        "stop_loss": 3100.0, "take_profit": 3400.0, "confidence": 0.78,
+        "timeframe": "1h", "risk_reward": 2.0,
     }
 
 
