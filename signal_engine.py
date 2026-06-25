@@ -104,10 +104,10 @@ def evaluate_coin(coin, tf_probs, candle1h, btc_trend, atr_p20):
 
     # 3. Confidence threshold on raw mean P(UP) over the 1h models.
     mean_pup = float(np.mean(tf_probs["1h"]))
-    if direction == "BUY" and not mean_pup > 0.75:
-        return None, f"confidence too low for BUY (mean P(UP)={mean_pup:.2f} <= 0.75)"
-    if direction == "SELL" and not mean_pup < 0.25:
-        return None, f"confidence too low for SELL (mean P(UP)={mean_pup:.2f} >= 0.25)"
+    if direction == "BUY" and not mean_pup > 0.65:
+        return None, f"confidence too low for BUY (mean P(UP)={mean_pup:.2f} <= 0.65)"
+    if direction == "SELL" and not mean_pup < 0.35:
+        return None, f"confidence too low for SELL (mean P(UP)={mean_pup:.2f} >= 0.35)"
 
     # 4. Volume confirmation.
     if not candle1h["volume"] > candle1h["vol_ma20"]:
