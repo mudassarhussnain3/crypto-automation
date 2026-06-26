@@ -106,9 +106,9 @@ def agree(probs):
     return None
 
 
-def evaluate_coin(coin, tf_probs, candle1h, btc_trend, atr_p20, daily_bullish, bb_width_pct):
+def evaluate_coin(coin, tf_probs, candle1h, btc_trend, atr_p20, daily_bullish):
     """
-    Apply the 8 filters in order. Returns (signal_dict, None) on a full pass, or
+    Apply the 7 filters in order. Returns (signal_dict, None) on a full pass, or
     (None, reason) naming the first filter that blocked.
 
     tf_probs     : {"15m":[p,p,p], "1h":[...], "4h":[...]} of P(UP) per model
@@ -116,7 +116,6 @@ def evaluate_coin(coin, tf_probs, candle1h, btc_trend, atr_p20, daily_bullish, b
     btc_trend    : "UP" / "DOWN"
     atr_p20      : 20th-percentile ATR threshold over the recent 1h window
     daily_bullish: bool — daily close > daily 50-EMA (caller-computed)
-    bb_width_pct : current 1h bb_width's percentile rank over the last 50 candles [0,1]
     """
     # 1. All 3 models agree on the 1h (decision) timeframe.
     direction = agree(tf_probs["1h"])
@@ -153,10 +152,6 @@ def evaluate_coin(coin, tf_probs, candle1h, btc_trend, atr_p20, daily_bullish, b
         return None, "daily_trend_misaligned"
     if direction == "SELL" and daily_bullish:
         return None, "daily_trend_misaligned"
-
-    # 8. Consolidation — fire only after a squeeze (1h BB-width in bottom 30% of last 50).
-    if not bb_width_pct < 0.30:
-        return None, "no_consolidation"
 
     return build_signal(coin, direction, candle1h, mean_pup), None
 
@@ -207,12 +202,10 @@ def run():
                     "volume": float(last["volume"]), "vol_ma20": float(last["vol_ma20"])}
         atr_p20 = float(np.percentile(df1h["atr"].values, ATR_PCT))
 
-        # New filters 7 & 8: daily 50-EMA trend, and 1h BB-width consolidation percentile.
+        # Filter 7: daily 50-EMA trend alignment.
         daily_bullish = fetch_daily_bullish(coin)
-        bb_width_pct = float(df1h["bb_width"].rolling(50).rank(pct=True).iloc[-1])
 
-        signal, reason = evaluate_coin(coin, tf_probs, candle1h, btc_trend, atr_p20,
-                                       daily_bullish, bb_width_pct)
+        signal, reason = evaluate_coin(coin, tf_probs, candle1h, btc_trend, atr_p20, daily_bullish)
         if signal is None:
             print(f"  {coin}: no signal — blocked by: {reason}")
             continue
@@ -234,11 +227,8 @@ def selftest():
     base = {"close": 100.0, "atr": 2.0, "volume": 1000.0, "vol_ma20": 500.0}
     strong_buy = {"15m": [0.8, 0.85, 0.9], "1h": [0.8, 0.82, 0.86], "4h": [0.78, 0.8, 0.83]}
 
-    # Pass-through values for the two new filters (daily bullish, consolidated).
-    OK = dict(daily_bullish=True, bb_width_pct=0.1)
-
-    # (a) all-pass BUY
-    sig, reason = evaluate_coin("ETHUSDT", strong_buy, base, "UP", 1.0, **OK)
+    # (a) all-pass BUY (daily bullish for a BUY)
+    sig, reason = evaluate_coin("ETHUSDT", strong_buy, base, "UP", 1.0, daily_bullish=True)
     assert reason is None and sig is not None, f"expected a signal, got {reason}"
     assert sig["direction"] == "BUY"
     assert sig["stop_loss"] == 100.0 - 2 * 2.0 and sig["take_profit"] == 100.0 + 4 * 2.0
@@ -247,34 +237,29 @@ def selftest():
 
     # all-pass SELL -> directional confidence should read high (daily must be bearish for SELL)
     strong_sell = {tf: [1 - p for p in v] for tf, v in strong_buy.items()}
-    sig_s, _ = evaluate_coin("ETHUSDT", strong_sell, base, "DOWN", 1.0,
-                             daily_bullish=False, bb_width_pct=0.1)
+    sig_s, _ = evaluate_coin("ETHUSDT", strong_sell, base, "DOWN", 1.0, daily_bullish=False)
     assert sig_s["direction"] == "SELL" and sig_s["confidence"] > 75
     assert sig_s["stop_loss"] == 100.0 + 2 * 2.0 and sig_s["take_profit"] == 100.0 - 4 * 2.0
 
     # (b) volume fail
     low_vol = {**base, "volume": 100.0}  # below vol_ma20
-    _, reason = evaluate_coin("ETHUSDT", strong_buy, low_vol, "UP", 1.0, **OK)
+    _, reason = evaluate_coin("ETHUSDT", strong_buy, low_vol, "UP", 1.0, daily_bullish=True)
     assert reason and reason.startswith("volume"), reason
 
     # (c) models disagree -> blocked at filter 1
     mixed = {"15m": [0.8, 0.2, 0.9], "1h": [0.8, 0.4, 0.9], "4h": [0.8, 0.8, 0.8]}
-    sig2, reason2 = evaluate_coin("ETHUSDT", mixed, base, "UP", 1.0, **OK)
+    sig2, reason2 = evaluate_coin("ETHUSDT", mixed, base, "UP", 1.0, daily_bullish=True)
     assert sig2 is None and "disagree" in reason2, reason2
 
     # (d) BTC opposite -> blocked at filter 6
-    _, reason3 = evaluate_coin("ETHUSDT", strong_buy, base, "DOWN", 1.0, **OK)
+    _, reason3 = evaluate_coin("ETHUSDT", strong_buy, base, "DOWN", 1.0, daily_bullish=False)
     assert reason3 and reason3.startswith("BTC"), reason3
 
-    # (f) NEW filter 7 — daily trend misaligned: BUY while daily bearish, SELL while daily bullish.
-    _, rf1 = evaluate_coin("ETHUSDT", strong_buy, base, "UP", 1.0, daily_bullish=False, bb_width_pct=0.1)
+    # (f) filter 7 — daily trend misaligned: BUY while daily bearish, SELL while daily bullish.
+    _, rf1 = evaluate_coin("ETHUSDT", strong_buy, base, "UP", 1.0, daily_bullish=False)
     assert rf1 == "daily_trend_misaligned", rf1
-    _, rf2 = evaluate_coin("ETHUSDT", strong_sell, base, "DOWN", 1.0, daily_bullish=True, bb_width_pct=0.1)
+    _, rf2 = evaluate_coin("ETHUSDT", strong_sell, base, "DOWN", 1.0, daily_bullish=True)
     assert rf2 == "daily_trend_misaligned", rf2
-
-    # (g) NEW filter 8 — no consolidation: bb_width not in bottom 30%.
-    _, rg = evaluate_coin("ETHUSDT", strong_buy, base, "UP", 1.0, daily_bullish=True, bb_width_pct=0.5)
-    assert rg == "no_consolidation", rg
 
     # (e) BTC wiring: btc_trend_1h must follow the PASSED BTC series, not self-reference.
     # On a rising price, the self-referential fallback (close>EMA20) is mostly 1; a real
@@ -290,8 +275,8 @@ def selftest():
     assert real["btc_trend_1h"].sum() == 0, "btc_trend_1h ignored the passed BTC series"
     assert fallback["btc_trend_1h"].mean() > 0.5, "self-referential fallback sanity failed"
 
-    print("selftest OK: 8-filter ladder + SL/TP + directional confidence + BTC wiring "
-          "+ daily-trend + consolidation all correct.")
+    print("selftest OK: 7-filter ladder + SL/TP + directional confidence + BTC wiring "
+          "+ daily-trend all correct.")
 
 
 if __name__ == "__main__":

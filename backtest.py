@@ -169,8 +169,6 @@ def run_coin(coin, btc):
 
     # Filter 7 input: daily 50-EMA trend, fetched fresh from Binance (warmup before 2025 test).
     daily_bull = daily_bullish_series(coin).sort_index()
-    # Filter 8 input: trailing 50-candle percentile rank of 1h bb_width (no lookahead).
-    bbpct = df1h["bb_width"].rolling(50).rank(pct=True).values
 
     trades = []
     n_signals = 0
@@ -183,7 +181,7 @@ def run_coin(coin, btc):
             continue
 
         row1h = probs1h.iloc[i]
-        if pd.isna(row1h["lstm"]) or np.isnan(atr_p20[i]) or np.isnan(bbpct[i]):
+        if pd.isna(row1h["lstm"]) or np.isnan(atr_p20[i]):
             continue  # warmup
         p15_row = asof_value(p15, C)
         p4h_row = asof_value(p4h, C)
@@ -203,7 +201,7 @@ def run_coin(coin, btc):
         daily_bullish = bool(db) if db is not None else True  # default bullish if no daily yet
 
         signal, reason = se.evaluate_coin(coin, tf_probs, candle1h, btc_now, float(atr_p20[i]),
-                                          daily_bullish, float(bbpct[i]))
+                                          daily_bullish)
         if signal is None:
             reasons[reason] += 1
             continue
@@ -316,18 +314,14 @@ def write_report(overall, per_coin, trades, test_start, today, reasons=None):
         lines += [
             "",
             "> **No signals fired** on the out-of-sample test set — this is *no trades*, not "
-            "losing trades. No candle cleared all 8 filters. The two new quality filters were "
-            f"the final cut: **{reasons.get('daily_trend_misaligned', 0)}** otherwise-qualifying "
-            f"signals were blocked by daily-trend misalignment and "
-            f"**{reasons.get('no_consolidation', 0)}** by the consolidation (BB-width bottom-30%) "
-            "requirement. Note the ATR-regime filter (rejects quiet markets) and the consolidation "
-            "filter (requires a quiet squeeze) partially conflict, so their joint pass-set is tiny.",
+            "losing trades. No candle cleared all 7 filters; "
+            f"**{reasons.get('daily_trend_misaligned', 0)}** otherwise-qualifying signals were "
+            "blocked by the daily-trend filter.",
         ]
     lines += [
         "",
-        "## New-Filter Block Counts",
+        "## Daily-Trend Filter Block Count",
         f"- daily_trend_misaligned: {reasons.get('daily_trend_misaligned', 0)}",
-        f"- no_consolidation: {reasons.get('no_consolidation', 0)}",
         "",
         "## Per-Coin Breakdown",
         "| Coin | Signals | Win Rate | Return | Max DD |",
@@ -376,9 +370,7 @@ def run():
           f"PF {overall['profit_factor']:.2f} | return {overall['total_return']:.1f}% | "
           f"maxDD {overall['max_drawdown']:.1f}%")
     print(verdict(overall["win_rate"]))
-    print(f"\nBlocked by NEW filters: daily_trend_misaligned={all_reasons['daily_trend_misaligned']}, "
-          f"no_consolidation={all_reasons['no_consolidation']}")
-    print("All block reasons:", dict(all_reasons))
+    print(f"\nBlocked by daily-trend filter: daily_trend_misaligned={all_reasons['daily_trend_misaligned']}")
 
 
 # --------------------------------------------------------------------------- #
