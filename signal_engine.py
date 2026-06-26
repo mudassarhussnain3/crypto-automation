@@ -37,14 +37,28 @@ ALGOS = ["lstm", "xgboost", "random_forest"]
 # --------------------------------------------------------------------------- #
 # Data
 # --------------------------------------------------------------------------- #
-def fetch_recent(symbol, tf, n=LOOKBACK):
-    """Fetch the last ~n closed candles + indicators for one symbol/timeframe."""
+def fetch_recent(symbol, tf, btc_trend=None, n=LOOKBACK):
+    """
+    Fetch the last ~n closed candles + indicators for one symbol/timeframe.
+
+    btc_trend: real BTC 1h trend Series (1/0 indexed by close_time) threaded into
+    add_indicators so the btc_trend_1h feature matches what the models trained on
+    (backward-asof real BTC), not the self-referential fallback.
+    """
     now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
     start_ms = now_ms - (n + SEQ_LEN + 60) * pl.INTERVAL_MS[tf]  # pad warmup + LSTM window
     df = pl.fetch_klines(symbol, tf, start_ms)
     if df.empty:
         return df
-    return pl.add_indicators(df)
+    return pl.add_indicators(df, btc_trend=btc_trend)
+
+
+def fetch_btc_trend_series():
+    """Real BTC 1h trend (close > EMA20 -> 1/0) indexed by close_time, covering the widest coin window."""
+    now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+    # 4h is the longest lookback span, so this BTC range covers every coin's candles.
+    start_ms = now_ms - (LOOKBACK + SEQ_LEN + 60) * pl.INTERVAL_MS["4h"]
+    return pl._btc_trend_series(start_ms)
 
 
 # --------------------------------------------------------------------------- #
@@ -153,21 +167,17 @@ def build_signal(coin, direction, candle1h, mean_pup):
 # --------------------------------------------------------------------------- #
 # Live run
 # --------------------------------------------------------------------------- #
-def get_btc_trend():
-    """BTC 1h trend: UP if last close > SMA20 (bb_mid), else DOWN. BTC isn't one of the 5 coins."""
-    df = fetch_recent("BTCUSDT", DECISION_TF)
-    last = df.iloc[-1]
-    return "UP" if last["close"] > last["bb_mid"] else "DOWN"
-
-
 def run():
     print("Signal engine — live check (decision timeframe = 1h)\n")
-    btc_trend = get_btc_trend()
+    # Real BTC 1h trend (close > EMA20): drives BOTH the btc_trend_1h model feature
+    # (per candle, via fetch_recent) and the BTC-correlation filter (latest value).
+    btc_series = fetch_btc_trend_series()
+    btc_trend = "UP" if btc_series.iloc[-1] >= 0.5 else "DOWN"
     print(f"BTC 1h trend: {btc_trend}\n")
 
     for coin in mc.COINS:
-        # Fetch all timeframes, get per-model P(UP) for the latest candle.
-        dfs = {tf: fetch_recent(coin, tf) for tf in TIMEFRAMES}
+        # Fetch all timeframes (with real BTC trend feeding btc_trend_1h), get per-model P(UP).
+        dfs = {tf: fetch_recent(coin, tf, btc_trend=btc_series) for tf in TIMEFRAMES}
         tf_probs = {tf: list(predict_pup(coin, tf, dfs[tf]).values()) for tf in TIMEFRAMES}
 
         df1h = dfs[DECISION_TF]
@@ -226,7 +236,21 @@ def selftest():
     _, reason3 = evaluate_coin("ETHUSDT", strong_buy, base, "DOWN", atr_p20=1.0)
     assert reason3 and reason3.startswith("BTC"), reason3
 
-    print("selftest OK: filter ladder + SL/TP + directional confidence all correct.")
+    # (e) BTC wiring: btc_trend_1h must follow the PASSED BTC series, not self-reference.
+    # On a rising price, the self-referential fallback (close>EMA20) is mostly 1; a real
+    # all-zeros BTC series must force btc_trend_1h to 0 everywhere.
+    import pandas as pd
+    idx = pd.date_range("2021-01-01", periods=250, freq="1h", tz="UTC")
+    rising = pd.Series(100 + np.arange(250) * 0.2, index=idx)
+    raw = pd.DataFrame({"open": rising, "high": rising + 1, "low": rising - 1,
+                        "close": rising, "volume": 1000.0}, index=idx)
+    btc_zero = pd.Series(0.0, index=idx + pd.Timedelta(hours=1))  # real BTC trend = always DOWN
+    real = pl.add_indicators(raw.copy(), btc_trend=btc_zero)
+    fallback = pl.add_indicators(raw.copy(), btc_trend=None)
+    assert real["btc_trend_1h"].sum() == 0, "btc_trend_1h ignored the passed BTC series"
+    assert fallback["btc_trend_1h"].mean() > 0.5, "self-referential fallback sanity failed"
+
+    print("selftest OK: filter ladder + SL/TP + directional confidence + BTC wiring all correct.")
 
 
 if __name__ == "__main__":

@@ -1,19 +1,19 @@
 # Backtest Report
-Generated: 2026-06-25
-Test Period: 2025-01-01 to 2026-06-25
+Generated: 2026-06-26
+Test Period: 2025-01-01 to 2026-06-26
 
 ## Overall Performance
-- Total signals: 24
-- Win rate: 33.3%
-- Loss rate: 66.7%
+- Total signals: 15
+- Win rate: 40.0%
+- Loss rate: 60.0%
 - Timeout rate: 0.0%
-- Profit factor: 1.00
-- Total return: 0.0%
-- Max drawdown: 5.0%
-- Sharpe ratio: 0.00
+- Profit factor: 1.33
+- Total return: 3.0%
+- Max drawdown: 3.0%
+- Sharpe ratio: 0.14
 - Avg win/loss ratio: 2.00
 - Largest win / loss: +2.0R / -1.0R
-- Longest win / loss streak: 3 / 5
+- Longest win / loss streak: 2 / 3
 
 ## Verdict
 ❌ NOT VIABLE (< 55%)
@@ -21,32 +21,27 @@ Test Period: 2025-01-01 to 2026-06-25
 ## Per-Coin Breakdown
 | Coin | Signals | Win Rate | Return | Max DD |
 |------|---------|----------|--------|--------|
-| ETHUSDT | 2 | 50.0% | 1.0% | 1.0% |
+| ETHUSDT | 5 | 40.0% | 1.0% | 3.0% |
 | SOLUSDT | 0 | 0.0% | 0.0% | 0.0% |
 | XRPUSDT | 0 | 0.0% | 0.0% | 0.0% |
-| BNBUSDT | 22 | 31.8% | -1.0% | 5.0% |
-| DOGEUSDT | 0 | 0.0% | 0.0% | 0.0% |
+| BNBUSDT | 8 | 50.0% | 4.0% | 2.0% |
+| DOGEUSDT | 2 | 0.0% | -2.0% | 1.0% |
 
 ## Trade Log (last 20)
 | Date | Coin | Direction | Entry | Exit | Outcome | P/L |
 |------|------|-----------|-------|------|---------|-----|
-| 2025-07-21 12:00 | BNBUSDT | SELL | 769 | 783.2 | loss | -1.0% |
-| 2025-07-23 11:00 | BNBUSDT | SELL | 799.4 | 769.2 | win | +2.0% |
-| 2025-07-27 12:00 | BNBUSDT | SELL | 796.7 | 805 | loss | -1.0% |
+| 2025-01-13 16:00 | DOGEUSDT | SELL | 0.3246 | 0.3363 | loss | -1.0% |
+| 2025-01-16 12:00 | BNBUSDT | SELL | 713.5 | 722.6 | loss | -1.0% |
+| 2025-02-13 14:00 | BNBUSDT | SELL | 721 | 670.9 | win | +2.0% |
+| 2025-06-10 06:00 | ETHUSDT | BUY | 2671 | 2768 | win | +2.0% |
+| 2025-07-03 00:00 | ETHUSDT | BUY | 2570 | 2523 | loss | -1.0% |
+| 2025-07-17 07:00 | BNBUSDT | SELL | 721 | 734.6 | loss | -1.0% |
+| 2025-07-18 13:00 | BNBUSDT | SELL | 749.8 | 763.6 | loss | -1.0% |
+| 2025-07-23 05:00 | BNBUSDT | SELL | 799.7 | 767.8 | win | +2.0% |
 | 2025-07-28 08:00 | BNBUSDT | SELL | 855.8 | 825.1 | win | +2.0% |
-| 2025-08-08 09:00 | BNBUSDT | SELL | 786.7 | 796 | loss | -1.0% |
 | 2025-08-09 05:00 | BNBUSDT | SELL | 801.3 | 809.7 | loss | -1.0% |
-| 2025-08-13 07:00 | BNBUSDT | SELL | 834.8 | 847.5 | loss | -1.0% |
-| 2025-08-14 08:00 | BNBUSDT | SELL | 858 | 828.1 | win | +2.0% |
-| 2025-08-14 15:00 | ETHUSDT | SELL | 4671 | 4368 | win | +2.0% |
-| 2025-08-23 10:00 | BNBUSDT | SELL | 893.6 | 865 | win | +2.0% |
-| 2025-08-24 17:00 | ETHUSDT | SELL | 4822 | 4891 | loss | -1.0% |
-| 2025-09-12 11:00 | BNBUSDT | SELL | 906.9 | 915 | loss | -1.0% |
-| 2025-09-13 14:00 | BNBUSDT | SELL | 936.5 | 916.7 | win | +2.0% |
-| 2025-09-21 00:00 | BNBUSDT | SELL | 1044 | 1060 | loss | -1.0% |
-| 2025-09-27 14:00 | BNBUSDT | SELL | 978.3 | 993 | loss | -1.0% |
-| 2025-10-07 12:00 | BNBUSDT | SELL | 1313 | 1349 | loss | -1.0% |
-| 2026-01-04 19:00 | BNBUSDT | SELL | 895.1 | 903.4 | loss | -1.0% |
-| 2026-01-10 05:00 | BNBUSDT | SELL | 906.3 | 915.7 | loss | -1.0% |
-| 2026-01-10 20:00 | BNBUSDT | SELL | 913.9 | 897.3 | win | +2.0% |
-| 2026-01-17 23:00 | BNBUSDT | SELL | 946.7 | 929.9 | win | +2.0% |
+| 2025-08-14 12:00 | BNBUSDT | SELL | 862.2 | 830.8 | win | +2.0% |
+| 2025-11-07 16:00 | DOGEUSDT | SELL | 0.169 | 0.1745 | loss | -1.0% |
+| 2025-12-09 21:00 | ETHUSDT | BUY | 3327 | 3244 | loss | -1.0% |
+| 2026-02-26 00:00 | ETHUSDT | BUY | 2057 | 1994 | loss | -1.0% |
+| 2026-03-16 09:00 | ETHUSDT | BUY | 2244 | 2345 | win | +2.0% |
