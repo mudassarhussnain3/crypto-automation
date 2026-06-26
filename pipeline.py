@@ -30,7 +30,7 @@ SYMBOLS = ["ETHUSDT", "SOLUSDT", "XRPUSDT", "BNBUSDT", "DOGEUSDT"]
 TIMEFRAMES = {"15m": "15min", "1h": "1h", "4h": "4h"}
 
 # Interval code -> milliseconds (for paginating the fetch loop).
-INTERVAL_MS = {"15m": 15 * 60_000, "1h": 60 * 60_000, "4h": 4 * 60 * 60_000, "1d": 24 * 60 * 60_000}
+INTERVAL_MS = {"15m": 15 * 60_000, "1h": 60 * 60_000, "4h": 4 * 60 * 60_000}
 
 START = "2021-01-01"  # inclusive start of the whole dataset
 

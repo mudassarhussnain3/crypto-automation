@@ -61,15 +61,6 @@ def fetch_btc_trend_series():
     return pl._btc_trend_series(start_ms)
 
 
-def fetch_daily_bullish(coin):
-    """Daily trend: True if latest closed daily candle's close > daily 50-EMA. Fresh from Binance."""
-    now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
-    start_ms = now_ms - 250 * pl.INTERVAL_MS["1d"]  # ample history for a stable 50-EMA
-    df = pl.fetch_klines(coin, "1d", start_ms)       # drops the still-forming day -> no lookahead
-    ema50 = df["close"].ewm(span=50, adjust=False).mean()
-    return bool(df["close"].iloc[-1] > ema50.iloc[-1])
-
-
 # --------------------------------------------------------------------------- #
 # Per-model P(UP) on the latest candle
 # --------------------------------------------------------------------------- #
@@ -106,16 +97,15 @@ def agree(probs):
     return None
 
 
-def evaluate_coin(coin, tf_probs, candle1h, btc_trend, atr_p20, daily_bullish):
+def evaluate_coin(coin, tf_probs, candle1h, btc_trend, atr_p20):
     """
-    Apply the 7 filters in order. Returns (signal_dict, None) on a full pass, or
+    Apply the 6 filters in order. Returns (signal_dict, None) on a full pass, or
     (None, reason) naming the first filter that blocked.
 
-    tf_probs     : {"15m":[p,p,p], "1h":[...], "4h":[...]} of P(UP) per model
-    candle1h     : {"close","atr","volume","vol_ma20"} from the latest 1h candle
-    btc_trend    : "UP" / "DOWN"
-    atr_p20      : 20th-percentile ATR threshold over the recent 1h window
-    daily_bullish: bool — daily close > daily 50-EMA (caller-computed)
+    tf_probs : {"15m":[p,p,p], "1h":[...], "4h":[...]} of P(UP) per model
+    candle1h : {"close","atr","volume","vol_ma20"} from the latest 1h candle
+    btc_trend: "UP" / "DOWN"
+    atr_p20  : 20th-percentile ATR threshold over the recent 1h window
     """
     # 1. All 3 models agree on the 1h (decision) timeframe.
     direction = agree(tf_probs["1h"])
@@ -146,12 +136,6 @@ def evaluate_coin(coin, tf_probs, candle1h, btc_trend, atr_p20, daily_bullish):
         return None, "BTC trend opposite (BTC DOWN, signal BUY)"
     if direction == "SELL" and btc_trend == "UP":
         return None, "BTC trend opposite (BTC UP, signal SELL)"
-
-    # 7. Daily trend alignment — only trade with the daily 50-EMA trend.
-    if direction == "BUY" and not daily_bullish:
-        return None, "daily_trend_misaligned"
-    if direction == "SELL" and daily_bullish:
-        return None, "daily_trend_misaligned"
 
     return build_signal(coin, direction, candle1h, mean_pup), None
 
@@ -202,10 +186,7 @@ def run():
                     "volume": float(last["volume"]), "vol_ma20": float(last["vol_ma20"])}
         atr_p20 = float(np.percentile(df1h["atr"].values, ATR_PCT))
 
-        # Filter 7: daily 50-EMA trend alignment.
-        daily_bullish = fetch_daily_bullish(coin)
-
-        signal, reason = evaluate_coin(coin, tf_probs, candle1h, btc_trend, atr_p20, daily_bullish)
+        signal, reason = evaluate_coin(coin, tf_probs, candle1h, btc_trend, atr_p20)
         if signal is None:
             print(f"  {coin}: no signal — blocked by: {reason}")
             continue
@@ -227,39 +208,33 @@ def selftest():
     base = {"close": 100.0, "atr": 2.0, "volume": 1000.0, "vol_ma20": 500.0}
     strong_buy = {"15m": [0.8, 0.85, 0.9], "1h": [0.8, 0.82, 0.86], "4h": [0.78, 0.8, 0.83]}
 
-    # (a) all-pass BUY (daily bullish for a BUY)
-    sig, reason = evaluate_coin("ETHUSDT", strong_buy, base, "UP", 1.0, daily_bullish=True)
+    # (a) all-pass BUY
+    sig, reason = evaluate_coin("ETHUSDT", strong_buy, base, "UP", atr_p20=1.0)
     assert reason is None and sig is not None, f"expected a signal, got {reason}"
     assert sig["direction"] == "BUY"
     assert sig["stop_loss"] == 100.0 - 2 * 2.0 and sig["take_profit"] == 100.0 + 4 * 2.0
     assert sig["risk_reward"] == 2.0 and sig["confidence"] > 75
     assert sig["timeframe"] == "1h"
 
-    # all-pass SELL -> directional confidence should read high (daily must be bearish for SELL)
+    # all-pass SELL -> directional confidence should read high
     strong_sell = {tf: [1 - p for p in v] for tf, v in strong_buy.items()}
-    sig_s, _ = evaluate_coin("ETHUSDT", strong_sell, base, "DOWN", 1.0, daily_bullish=False)
+    sig_s, _ = evaluate_coin("ETHUSDT", strong_sell, base, "DOWN", atr_p20=1.0)
     assert sig_s["direction"] == "SELL" and sig_s["confidence"] > 75
     assert sig_s["stop_loss"] == 100.0 + 2 * 2.0 and sig_s["take_profit"] == 100.0 - 4 * 2.0
 
     # (b) volume fail
     low_vol = {**base, "volume": 100.0}  # below vol_ma20
-    _, reason = evaluate_coin("ETHUSDT", strong_buy, low_vol, "UP", 1.0, daily_bullish=True)
+    _, reason = evaluate_coin("ETHUSDT", strong_buy, low_vol, "UP", atr_p20=1.0)
     assert reason and reason.startswith("volume"), reason
 
     # (c) models disagree -> blocked at filter 1
     mixed = {"15m": [0.8, 0.2, 0.9], "1h": [0.8, 0.4, 0.9], "4h": [0.8, 0.8, 0.8]}
-    sig2, reason2 = evaluate_coin("ETHUSDT", mixed, base, "UP", 1.0, daily_bullish=True)
+    sig2, reason2 = evaluate_coin("ETHUSDT", mixed, base, "UP", atr_p20=1.0)
     assert sig2 is None and "disagree" in reason2, reason2
 
     # (d) BTC opposite -> blocked at filter 6
-    _, reason3 = evaluate_coin("ETHUSDT", strong_buy, base, "DOWN", 1.0, daily_bullish=False)
+    _, reason3 = evaluate_coin("ETHUSDT", strong_buy, base, "DOWN", atr_p20=1.0)
     assert reason3 and reason3.startswith("BTC"), reason3
-
-    # (f) filter 7 — daily trend misaligned: BUY while daily bearish, SELL while daily bullish.
-    _, rf1 = evaluate_coin("ETHUSDT", strong_buy, base, "UP", 1.0, daily_bullish=False)
-    assert rf1 == "daily_trend_misaligned", rf1
-    _, rf2 = evaluate_coin("ETHUSDT", strong_sell, base, "DOWN", 1.0, daily_bullish=True)
-    assert rf2 == "daily_trend_misaligned", rf2
 
     # (e) BTC wiring: btc_trend_1h must follow the PASSED BTC series, not self-reference.
     # On a rising price, the self-referential fallback (close>EMA20) is mostly 1; a real
@@ -275,8 +250,7 @@ def selftest():
     assert real["btc_trend_1h"].sum() == 0, "btc_trend_1h ignored the passed BTC series"
     assert fallback["btc_trend_1h"].mean() > 0.5, "self-referential fallback sanity failed"
 
-    print("selftest OK: 7-filter ladder + SL/TP + directional confidence + BTC wiring "
-          "+ daily-trend all correct.")
+    print("selftest OK: filter ladder + SL/TP + directional confidence + BTC wiring all correct.")
 
 
 if __name__ == "__main__":

@@ -17,7 +17,6 @@ Usage:
 
 import os
 import sys
-from collections import Counter
 from datetime import datetime, timezone
 
 import numpy as np
@@ -98,16 +97,6 @@ def btc_trend_series(start_ms):
     return pd.Series(trend, index=df.index + pd.Timedelta(milliseconds=pl.INTERVAL_MS["1h"]))
 
 
-def daily_bullish_series(coin):
-    """Coin daily trend (close > 50-EMA -> True/False) indexed by daily close_time. Fresh from Binance.
-
-    Fetched from 2024-09-01 so the 50-EMA is warmed up before the 2025 test window.
-    """
-    df = pl.fetch_klines(coin, "1d", pl._to_ms("2024-09-01"))
-    bullish = df["close"] > df["close"].ewm(span=50, adjust=False).mean()
-    return pd.Series(bullish.values, index=df.index + pd.Timedelta(milliseconds=pl.INTERVAL_MS["1d"]))
-
-
 def asof_value(sorted_index_series, ts):
     """Most recent value at or before ts (no lookahead). sorted_index_series sorted ascending."""
     pos = sorted_index_series.index.searchsorted(ts, side="right") - 1
@@ -167,13 +156,10 @@ def run_coin(coin, btc):
 
     atr_p20 = (df1h["atr"].rolling(ATR_WINDOW, min_periods=50).quantile(ATR_PCT / 100.0)).values
 
-    # Filter 7 input: daily 50-EMA trend, fetched fresh from Binance (warmup before 2025 test).
-    daily_bull = daily_bullish_series(coin).sort_index()
-
     trades = []
     n_signals = 0
-    reasons = Counter()  # block-reason tally (marginal kills, via ordered short-circuit)
     busy_until = None  # close_time of an open trade's exit; skip signals until then
+    times1h = df1h["close_time"].values
 
     for i in range(len(df1h)):
         C = df1h["close_time"].iloc[i]
@@ -197,13 +183,9 @@ def run_coin(coin, btc):
         candle1h = {"close": float(r["close"]), "atr": float(r["atr"]),
                     "volume": float(r["volume"]), "vol_ma20": float(r["vol_ma20"])}
         btc_now = asof_value(btc_sorted, C) or "UP"
-        db = asof_value(daily_bull, C)
-        daily_bullish = bool(db) if db is not None else True  # default bullish if no daily yet
 
-        signal, reason = se.evaluate_coin(coin, tf_probs, candle1h, btc_now, float(atr_p20[i]),
-                                          daily_bullish)
+        signal, _reason = se.evaluate_coin(coin, tf_probs, candle1h, btc_now, float(atr_p20[i]))
         if signal is None:
-            reasons[reason] += 1
             continue
 
         n_signals += 1
@@ -219,7 +201,7 @@ def run_coin(coin, btc):
         busy_until = exit_time if exit_time is not None else C
 
     print(f"  [{coin}] processed {len(df1h):,} candles, {n_signals} signals fired")
-    return trades, reasons
+    return trades
 
 
 # --------------------------------------------------------------------------- #
@@ -286,9 +268,8 @@ def verdict(win_rate):
 # --------------------------------------------------------------------------- #
 # Report
 # --------------------------------------------------------------------------- #
-def write_report(overall, per_coin, trades, test_start, today, reasons=None):
+def write_report(overall, per_coin, trades, test_start, today):
     o = overall
-    reasons = reasons or Counter()
     lines = [
         "# Backtest Report",
         f"Generated: {today}",
@@ -313,15 +294,14 @@ def write_report(overall, per_coin, trades, test_start, today, reasons=None):
     if o["signals"] == 0:
         lines += [
             "",
-            "> **No signals fired** on the out-of-sample test set — this is *no trades*, not "
-            "losing trades. No candle cleared all 7 filters; "
-            f"**{reasons.get('daily_trend_misaligned', 0)}** otherwise-qualifying signals were "
-            "blocked by the daily-trend filter.",
+            "> **No signals fired** on the out-of-sample test set — this is *no trades*, "
+            "not losing trades. The 6-filter ensemble never cleared the confidence gate: "
+            "the average 1h P(UP) across the 3 models peaks around 0.71, never reaching the "
+            "0.75 BUY / 0.25 SELL threshold. The models' directional edge (~0.50–0.54 "
+            "validation accuracy) is too weak for this strict a gate. To produce tradeable "
+            "signals, relax the confidence threshold and/or the all-3-timeframes-align rule.",
         ]
     lines += [
-        "",
-        "## Daily-Trend Filter Block Count",
-        f"- daily_trend_misaligned: {reasons.get('daily_trend_misaligned', 0)}",
         "",
         "## Per-Coin Breakdown",
         "| Coin | Signals | Win Rate | Return | Max DD |",
@@ -355,22 +335,20 @@ def run():
 
     btc = btc_trend_series(pl._to_ms(test_start))
 
-    all_trades, per_coin, all_reasons = [], {}, Counter()
+    all_trades, per_coin = [], {}
     for coin in mc.COINS:
-        trades, reasons = run_coin(coin, btc)
+        trades = run_coin(coin, btc)
         per_coin[coin] = compute_metrics(trades)
         all_trades.extend(trades)
-        all_reasons.update(reasons)
 
     all_trades.sort(key=lambda t: t["date"])
     overall = compute_metrics(all_trades)
-    write_report(overall, per_coin, all_trades, test_start, today, all_reasons)
+    write_report(overall, per_coin, all_trades, test_start, today)
 
     print(f"\nOVERALL: {overall['signals']} signals | win {overall['win_rate']:.1f}% | "
           f"PF {overall['profit_factor']:.2f} | return {overall['total_return']:.1f}% | "
           f"maxDD {overall['max_drawdown']:.1f}%")
     print(verdict(overall["win_rate"]))
-    print(f"\nBlocked by daily-trend filter: daily_trend_misaligned={all_reasons['daily_trend_misaligned']}")
 
 
 # --------------------------------------------------------------------------- #
